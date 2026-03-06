@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**imgvidsort** — Sorts and renames images/videos from a USB stick using a local vision LLM (Qwen2.5-VL via Ollama). Licensed under GPL-3.0.
+**imgvidsort** — Sorts and renames images/videos from a USB stick using a local vision LLM via Ollama. Licensed under GPL-3.0.
 
 ## How It Works
 
@@ -27,11 +27,21 @@ python3 imgvidsort.py --dry-run
 python3 imgvidsort.py --source /path/to/media --output /path/to/sorted
 
 # Use a different Ollama vision model
+python3 imgvidsort.py --model qwen3-vl:2b
+python3 imgvidsort.py --model gemma3:4b
 python3 imgvidsort.py --model llama3.2-vision:latest
 ```
+
+## Supported Vision Models
+
+- `qwen2.5-vl:7b` (default) — strong vision model
+- `qwen3-vl:2b` — lightweight & fast, good for large batches
+- `gemma3:4b` — good quality/speed tradeoff
+- `llama3.2-vision` — Meta's vision model
+- Any Ollama model that supports image input via the `--model` flag
 
 ## Dependencies
 
 - Python 3 (no pip packages needed — uses only stdlib)
 - ffmpeg/ffprobe (for video frame extraction)
-- Ollama running locally with a vision model (default: `qwen2.5-vl:7b`)
+- Ollama running locally with a vision model

@@ -1,11 +1,11 @@
 # imgvidsort
 
-Sort and rename images and videos using a local vision LLM (Qwen2.5-VL via Ollama).
+Sort and rename images and videos using a local vision LLM via Ollama.
 
 ## What it does
 
 - Scans a USB stick (or any directory) for images and videos
-- Sends images to Qwen2.5-VL for content recognition and renames them based on what the model sees
+- Sends images to a vision model for content recognition and renames them based on what the model sees
 - Extracts 3 frames from each video, analyzes them, and renames the video accordingly
 - Sorts everything into date-based subdirectories (`YYYY-MM-DD/`)
 - Copies files — originals are never modified or deleted
@@ -14,11 +14,13 @@ Sort and rename images and videos using a local vision LLM (Qwen2.5-VL via Ollam
 
 - Python 3 (no external packages needed)
 - [ffmpeg](https://ffmpeg.org/) (for video frame extraction)
-- [Ollama](https://ollama.com/) running locally with `qwen2.5-vl:7b`
+- [Ollama](https://ollama.com/) running locally with a vision model
 
 ```bash
-# Install the vision model
-ollama pull qwen2.5-vl:7b
+# Install one of the supported vision models
+ollama pull qwen2.5-vl:7b      # default, strong vision model
+ollama pull qwen3-vl:2b         # lightweight & fast, good for large batches
+ollama pull gemma3:4b            # good quality/speed tradeoff
 ```
 
 ## Usage
@@ -34,6 +36,8 @@ python3 imgvidsort.py
 python3 imgvidsort.py --source /path/to/media --output /path/to/sorted
 
 # Use a different vision model
+python3 imgvidsort.py --model qwen3-vl:2b
+python3 imgvidsort.py --model gemma3:4b
 python3 imgvidsort.py --model llama3.2-vision:latest
 ```
 

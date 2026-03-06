@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-imgvidsort - Sort and rename images/videos on a USB stick using Qwen2.5-VL via Ollama.
+imgvidsort - Sort and rename images/videos on a USB stick using a vision LLM via Ollama.
 
 Videos: extracts 3 frames, sends them to the model, renames based on content description.
 Images: sends the image to the model, renames based on content description.
