@@ -18,9 +18,10 @@ Sort and rename images and videos using a local vision LLM via Ollama.
 
 ```bash
 # Install one of the supported vision models
-ollama pull qwen2.5-vl:7b      # default, strong vision model
-ollama pull qwen3-vl:2b         # lightweight & fast, good for large batches
+ollama pull qwen3-vl:8b         # default — best quality
+ollama pull qwen2.5-vl:7b       # strong vision model
 ollama pull gemma3:4b            # good quality/speed tradeoff
+ollama pull qwen3-vl:2b         # fastest — lightweight, good for large batches
 ```
 
 ## Usage
@@ -35,10 +36,11 @@ python3 imgvidsort.py
 # Custom source and output
 python3 imgvidsort.py --source /path/to/media --output /path/to/sorted
 
-# Use a different vision model
-python3 imgvidsort.py --model qwen3-vl:2b
-python3 imgvidsort.py --model gemma3:4b
-python3 imgvidsort.py --model llama3.2-vision:latest
+# Use a specific vision model
+python3 imgvidsort.py --model qwen3-vl:8b     # best quality (default)
+python3 imgvidsort.py --model qwen2.5-vl:7b   # strong alternative
+python3 imgvidsort.py --model gemma3:4b        # balanced
+python3 imgvidsort.py --model qwen3-vl:2b     # fastest
 ```
 
 ## Output structure

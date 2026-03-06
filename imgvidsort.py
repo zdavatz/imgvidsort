@@ -27,7 +27,14 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".webp"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv"}
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-DEFAULT_MODEL = "qwen2.5-vl:7b"
+DEFAULT_MODEL = "qwen3-vl:8b"
+
+SUPPORTED_MODELS = [
+    "qwen3-vl:8b",     # best quality — newest generation vision model
+    "qwen2.5-vl:7b",   # strong vision model
+    "gemma3:4b",        # good quality/speed tradeoff
+    "qwen3-vl:2b",     # fastest — lightweight, good for large batches
+]
 
 
 def encode_image_base64(path):
@@ -198,15 +205,20 @@ def process_file(filepath, output_dir, existing_names, model, dry_run=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sort and rename images/videos using Qwen2.5-VL")
+    models_help = "Supported models:\n" + "\n".join(f"  {m}" for m in SUPPORTED_MODELS)
+    parser = argparse.ArgumentParser(
+        description="Sort and rename images/videos using a vision LLM via Ollama",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=models_help,
+    )
     parser.add_argument("--source", default="/Volumes/WerniVid",
                         help="Source directory (default: /Volumes/WerniVid)")
     parser.add_argument("--output", default=None,
                         help="Output directory (default: <source>/sorted)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Show what would happen without copying files")
-    parser.add_argument("--model", default=DEFAULT_MODEL,
-                        help=f"Ollama model to use (default: {DEFAULT_MODEL})")
+    parser.add_argument("--model", default=DEFAULT_MODEL, choices=SUPPORTED_MODELS,
+                        help=f"Vision model to use (default: {DEFAULT_MODEL})")
     args = parser.parse_args()
 
     model = args.model

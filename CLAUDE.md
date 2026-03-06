@@ -26,22 +26,22 @@ python3 imgvidsort.py --dry-run
 # Custom source/output
 python3 imgvidsort.py --source /path/to/media --output /path/to/sorted
 
-# Use a different Ollama vision model
-python3 imgvidsort.py --model qwen3-vl:2b
+# Use a specific vision model
+python3 imgvidsort.py --model qwen3-vl:8b
+python3 imgvidsort.py --model qwen2.5-vl:7b
 python3 imgvidsort.py --model gemma3:4b
-python3 imgvidsort.py --model llama3.2-vision:latest
+python3 imgvidsort.py --model qwen3-vl:2b
 ```
 
 ## Supported Vision Models
 
-- `qwen2.5-vl:7b` (default) — strong vision model
-- `qwen3-vl:2b` — lightweight & fast, good for large batches
+- `qwen3-vl:8b` (default) — best quality, newest generation
+- `qwen2.5-vl:7b` — strong vision model
 - `gemma3:4b` — good quality/speed tradeoff
-- `llama3.2-vision` — Meta's vision model
-- Any Ollama model that supports image input via the `--model` flag
+- `qwen3-vl:2b` — fastest, lightweight, good for large batches
 
 ## Dependencies
 
 - Python 3 (no pip packages needed — uses only stdlib)
 - ffmpeg/ffprobe (for video frame extraction)
-- Ollama running locally with a vision model
+- Ollama running locally with one of the supported vision models
