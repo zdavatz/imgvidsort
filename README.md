@@ -12,7 +12,7 @@ Sort and rename images and videos using a local vision LLM via Ollama.
 - Skips 0-byte files (corrupt or incomplete transfers) to avoid hallucinated filenames
 - Verifies file integrity after copying (removes bad copies if size mismatch)
 - Reports source and output directory sizes, warns on size mismatch
-- Checks that the Ollama model is installed before processing, exits with install instructions if missing
+- Automatically pulls the Ollama model if not installed
 
 ## Requirements
 

@@ -362,11 +362,12 @@ def main():
                 tags = json.loads(resp.read().decode("utf-8"))
                 model_names = [m["name"] for m in tags.get("models", [])]
                 if not any(model in name for name in model_names):
-                    print(f"ERROR: Model '{model}' not found in Ollama.")
-                    print(f"Install it with: ollama pull {model}")
-                    if model_names:
-                        print(f"Available models: {', '.join(model_names)}")
-                    sys.exit(1)
+                    print(f"Model '{model}' not found in Ollama. Pulling it now...")
+                    result = subprocess.run(["ollama", "pull", model])
+                    if result.returncode != 0:
+                        print(f"ERROR: Failed to pull model '{model}'")
+                        sys.exit(1)
+                    print(f"Model '{model}' installed successfully.")
         except Exception as e:
             print(f"ERROR: Cannot connect to Ollama at localhost:11434: {e}")
             print("Make sure Ollama is running: ollama serve")
