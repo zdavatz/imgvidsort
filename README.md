@@ -13,6 +13,7 @@ Sort and rename images and videos using a local vision LLM via Ollama.
 - Verifies file integrity after copying (removes bad copies if size mismatch)
 - Reports source and output directory sizes, warns on size mismatch
 - Automatically pulls the Ollama model if not installed
+- Uses [llmfit](https://github.com/jeroenherczeg/llmfit) to auto-select the best vision model for your hardware (if installed)
 
 ## Requirements
 

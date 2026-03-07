@@ -40,6 +40,53 @@ GROK_API_URL = "https://api.x.ai/v1/chat/completions"
 GROK_DEFAULT_MODEL = "grok-4-1-fast-reasoning"
 
 
+def _llmfit_recommend():
+    """Use llmfit to find the best vision model for this hardware, return Ollama model name."""
+    if not shutil.which("llmfit"):
+        return None
+    try:
+        result = subprocess.run(
+            ["llmfit", "recommend", "--capability", "vision", "--limit", "1", "--json"],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout)
+        models = data.get("models", [])
+        if not models:
+            return None
+        name = models[0]["name"].lower()
+        params_b = models[0].get("params_b", 0)
+        # Map llmfit model name to Ollama model name
+        # e.g. "QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ" -> "qwen3-vl:32b"
+        #      "meta-llama/Llama-3.2-11B-Vision-Instruct" -> "llama3.2-vision:11b"
+        #      "google/gemma-3-12b-it" -> "gemma3:12b"
+        if "qwen3-vl" in name or "qwen3_vl" in name:
+            if params_b > 20:
+                return "qwen3-vl:32b"
+            elif params_b > 5:
+                return "qwen3-vl:8b"
+            else:
+                return "qwen3-vl:2b"
+        elif "qwen2.5-vl" in name or "qwen2.5_vl" in name or "qwen2.5vl" in name:
+            return "qwen2.5-vl:7b"
+        elif "gemma-3" in name or "gemma3" in name:
+            if params_b > 8:
+                return "gemma3:12b"
+            else:
+                return "gemma3:4b"
+        elif "llama-3.2" in name and "vision" in name:
+            return "llama3.2-vision:11b"
+        elif "phi-4" in name:
+            return "phi4-mini"
+        else:
+            print(f"  llmfit recommends '{models[0]['name']}' but no Ollama mapping found")
+            return None
+    except Exception as e:
+        print(f"  WARNING: llmfit failed: {e}")
+        return None
+
+
 def _format_size(size_bytes):
     """Format byte count as human-readable string."""
     for unit in ("B", "KB", "MB", "GB"):
@@ -338,8 +385,16 @@ def main():
     api = args.api
     if args.model:
         model = args.model
+    elif api == "grok":
+        model = GROK_DEFAULT_MODEL
     else:
-        model = GROK_DEFAULT_MODEL if api == "grok" else DEFAULT_MODEL
+        # Try llmfit to find the best vision model for this hardware
+        recommended = _llmfit_recommend()
+        if recommended:
+            print(f"llmfit recommends: {recommended}")
+            model = recommended
+        else:
+            model = DEFAULT_MODEL
 
     source = args.source
     output_dir = args.output or os.path.join(source, "sorted")

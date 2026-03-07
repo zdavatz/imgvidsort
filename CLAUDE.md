@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 7. Post-copy verification ensures destination file matches source size; bad copies are removed automatically
 8. Reports total source and output directory sizes at the end, warns on size mismatch
 9. Automatically runs `ollama pull` if the requested model is not installed
+10. If `llmfit` is installed, uses it to auto-select the best vision model for the system hardware (when no `--model` is specified)
 
 ## Commands
 
