@@ -13,6 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. For images: sends the image directly to the vision model
 4. Model returns a short description used as the new filename
 5. Files are copied (not moved) into `<output>/YYYY-MM-DD/` directories, preserving original timestamps in the filename
+6. 0-byte files are skipped (corrupt/incomplete transfers would cause the model to hallucinate a description)
 
 ## Commands
 

@@ -9,6 +9,7 @@ Sort and rename images and videos using a local vision LLM via Ollama.
 - Extracts 3 frames from each video, analyzes them, and renames the video accordingly
 - Sorts everything into date-based subdirectories (`YYYY-MM-DD/`)
 - Copies files — originals are never modified or deleted
+- Skips 0-byte files (corrupt or incomplete transfers) to avoid hallucinated filenames
 
 ## Requirements
 

@@ -36,6 +36,9 @@ SUPPORTED_MODELS = [
     "qwen3-vl:2b",     # fastest — lightweight, good for large batches
 ]
 
+GROK_API_URL = "https://api.x.ai/v1/chat/completions"
+GROK_DEFAULT_MODEL = "grok-4-1-fast-reasoning"
+
 
 def encode_image_base64(path):
     with open(path, "rb") as f:
@@ -69,25 +72,35 @@ def extract_frames(video_path, num_frames=3):
     return frame_paths, tmpdir
 
 
-def describe_with_ollama(image_paths, model):
-    """Send images to Qwen2.5-VL via Ollama and get a short description."""
-    images_b64 = [encode_image_base64(p) for p in image_paths]
+VISION_PROMPT = (
+    "Describe what you see in this image in 3-6 words suitable for a filename. "
+    "Be specific about subjects, actions, and location. "
+    "Use only lowercase English words separated by underscores. "
+    "Do NOT include file extensions. Examples: dog_playing_in_park, "
+    "sunset_over_mountain_lake, child_riding_bicycle. "
+    "Reply with ONLY the filename, nothing else."
+)
 
-    prompt = (
-        "Describe what you see in this image in 3-6 words suitable for a filename. "
-        "Be specific about subjects, actions, and location. "
-        "Use only lowercase English words separated by underscores. "
-        "Do NOT include file extensions. Examples: dog_playing_in_park, "
-        "sunset_over_mountain_lake, child_riding_bicycle. "
-        "Reply with ONLY the filename, nothing else."
-    )
+
+def clean_description(description):
+    """Clean up model response into a valid filename component."""
+    description = re.sub(r"[^a-z0-9_]", "_", description.lower())
+    description = re.sub(r"_+", "_", description).strip("_")
+    if len(description) > 80:
+        description = description[:80].rsplit("_", 1)[0]
+    return description if description else "unknown"
+
+
+def describe_with_ollama(image_paths, model):
+    """Send images to a vision model via Ollama and get a short description."""
+    images_b64 = [encode_image_base64(p) for p in image_paths]
 
     payload = {
         "model": model,
         "messages": [
             {
                 "role": "user",
-                "content": prompt,
+                "content": VISION_PROMPT,
                 "images": images_b64,
             }
         ],
@@ -104,16 +117,91 @@ def describe_with_ollama(image_paths, model):
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             result = json.loads(resp.read().decode("utf-8"))
-            description = result["message"]["content"].strip()
-            # Clean up: keep only alphanumeric and underscores
-            description = re.sub(r"[^a-z0-9_]", "_", description.lower())
-            description = re.sub(r"_+", "_", description).strip("_")
-            # Truncate to reasonable length
-            if len(description) > 80:
-                description = description[:80].rsplit("_", 1)[0]
-            return description if description else "unknown"
+            return clean_description(result["message"]["content"].strip())
     except Exception as e:
         print(f"  WARNING: Ollama request failed: {e}")
+        return "unknown"
+
+
+def _upload_temp(filepath):
+    """Upload a file to tmpfiles.org and return a direct download URL."""
+    boundary = "----imgvidsort_boundary"
+    filename = os.path.basename(filepath)
+
+    with open(filepath, "rb") as f:
+        file_data = f.read()
+
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: application/octet-stream\r\n\r\n"
+    ).encode() + file_data + f"\r\n--{boundary}--\r\n".encode()
+
+    req = urllib.request.Request(
+        "https://tmpfiles.org/api/v1/upload",
+        data=body,
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "imgvidsort/1.0",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        result = json.loads(resp.read().decode())
+        # Convert page URL to direct download URL
+        # e.g. http://tmpfiles.org/12345/file.jpg -> https://tmpfiles.org/dl/12345/file.jpg
+        page_url = result["data"]["url"]
+        return page_url.replace("tmpfiles.org/", "tmpfiles.org/dl/", 1).replace("http://", "https://")
+
+
+def describe_with_grok(image_paths, model):
+    """Send images to Grok vision API via temporary URL uploads."""
+    api_key = os.environ.get("XAI_API_KEY")
+    if not api_key:
+        print("  ERROR: XAI_API_KEY environment variable not set")
+        return "unknown"
+
+    content = [{"type": "text", "text": VISION_PROMPT}]
+    uploaded_urls = []
+    for p in image_paths:
+        try:
+            url = _upload_temp(p)
+            uploaded_urls.append(url)
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": url},
+            })
+        except Exception as e:
+            print(f"  WARNING: Failed to upload {p}: {e}")
+            return "unknown"
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": content}],
+        "store": False,
+        "max_tokens": 40,
+        "temperature": 0.2,
+    }
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        GROK_API_URL,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "imgvidsort/1.0",
+            "Accept": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            text = result["choices"][0]["message"]["content"].strip()
+            return clean_description(text)
+    except Exception as e:
+        print(f"  WARNING: Grok API request failed: {e}")
         return "unknown"
 
 
@@ -154,12 +242,17 @@ def collect_media_files(source_dir):
     return sorted(media_files)
 
 
-def process_file(filepath, output_dir, existing_names, model, dry_run=False):
+def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=False):
     """Process a single image or video file."""
     filename = os.path.basename(filepath)
     ext = os.path.splitext(filename)[1].lower()
     date_str = extract_date_from_filename(filename)
     date_dir = os.path.join(output_dir, date_str)
+
+    file_size = os.path.getsize(filepath)
+    if file_size == 0:
+        print(f"\n[SKIP] {filename} (0 bytes)")
+        return None
 
     is_video = ext in VIDEO_EXTS
     file_type = "VIDEO" if is_video else "IMAGE"
@@ -176,10 +269,10 @@ def process_file(filepath, output_dir, existing_names, model, dry_run=False):
                 description = "unknown_video"
             else:
                 print(f"  Analyzing {len(frame_paths)} frames with {model}...")
-                description = describe_with_ollama(frame_paths, model)
+                description = describe_fn(frame_paths, model)
         else:
             print(f"  Analyzing with {model}...")
-            description = describe_with_ollama([filepath], model)
+            description = describe_fn([filepath], model)
     finally:
         if tmpdir:
             shutil.rmtree(tmpdir, ignore_errors=True)
@@ -205,9 +298,12 @@ def process_file(filepath, output_dir, existing_names, model, dry_run=False):
 
 
 def main():
-    models_help = "Supported models:\n" + "\n".join(f"  {m}" for m in SUPPORTED_MODELS)
+    models_help = (
+        "Supported Ollama models:\n" + "\n".join(f"  {m}" for m in SUPPORTED_MODELS) +
+        "\n\nGrok models:\n  grok-2-vision-latest (default for --api grok)"
+    )
     parser = argparse.ArgumentParser(
-        description="Sort and rename images/videos using a vision LLM via Ollama",
+        description="Sort and rename images/videos using a vision LLM",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=models_help,
     )
@@ -217,11 +313,18 @@ def main():
                         help="Output directory (default: <source>/sorted)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Show what would happen without copying files")
-    parser.add_argument("--model", default=DEFAULT_MODEL, choices=SUPPORTED_MODELS,
-                        help=f"Vision model to use (default: {DEFAULT_MODEL})")
+    parser.add_argument("--api", default="ollama", choices=["ollama", "grok"],
+                        help="API backend to use (default: ollama)")
+    parser.add_argument("--model", default=None,
+                        help=f"Vision model (default: {DEFAULT_MODEL} for ollama, {GROK_DEFAULT_MODEL} for grok)")
     args = parser.parse_args()
 
-    model = args.model
+    api = args.api
+    if args.model:
+        model = args.model
+    else:
+        model = GROK_DEFAULT_MODEL if api == "grok" else DEFAULT_MODEL
+
     source = args.source
     output_dir = args.output or os.path.join(source, "sorted")
 
@@ -229,22 +332,30 @@ def main():
         print(f"ERROR: Source directory not found: {source}")
         sys.exit(1)
 
-    # Verify Ollama is running and model is available
-    try:
-        req = urllib.request.Request("http://localhost:11434/api/tags")
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            tags = json.loads(resp.read().decode("utf-8"))
-            model_names = [m["name"] for m in tags.get("models", [])]
-            if not any(model in name for name in model_names):
-                print(f"WARNING: Model '{model}' not found in Ollama. Available: {model_names}")
-                print("Continuing anyway in case it's still pulling...")
-    except Exception as e:
-        print(f"ERROR: Cannot connect to Ollama at localhost:11434: {e}")
-        print("Make sure Ollama is running: ollama serve")
-        sys.exit(1)
+    if api == "grok":
+        describe_fn = describe_with_grok
+        if not os.environ.get("XAI_API_KEY"):
+            print("ERROR: XAI_API_KEY environment variable not set")
+            sys.exit(1)
+    else:
+        describe_fn = describe_with_ollama
+        # Verify Ollama is running and model is available
+        try:
+            req = urllib.request.Request("http://localhost:11434/api/tags")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                tags = json.loads(resp.read().decode("utf-8"))
+                model_names = [m["name"] for m in tags.get("models", [])]
+                if not any(model in name for name in model_names):
+                    print(f"WARNING: Model '{model}' not found in Ollama. Available: {model_names}")
+                    print("Continuing anyway in case it's still pulling...")
+        except Exception as e:
+            print(f"ERROR: Cannot connect to Ollama at localhost:11434: {e}")
+            print("Make sure Ollama is running: ollama serve")
+            sys.exit(1)
 
     print(f"Source:  {source}")
     print(f"Output:  {output_dir}")
+    print(f"API:     {api}")
     print(f"Model:   {model}")
     if args.dry_run:
         print("DRY RUN - no files will be copied")
@@ -269,7 +380,7 @@ def main():
 
     for filepath in media_files:
         try:
-            process_file(filepath, output_dir, existing_names, model, dry_run=args.dry_run)
+            process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=args.dry_run)
             processed += 1
         except KeyboardInterrupt:
             print("\n\nInterrupted by user.")
