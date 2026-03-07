@@ -293,6 +293,13 @@ def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_r
     if not dry_run:
         os.makedirs(date_dir, exist_ok=True)
         shutil.copy2(filepath, dest_path)
+        # Verify the copy has the same size as the source
+        src_size = os.path.getsize(filepath)
+        dst_size = os.path.getsize(dest_path)
+        if dst_size != src_size:
+            os.remove(dest_path)
+            print(f"  ERROR: Copy verification failed ({dst_size} != {src_size} bytes), removed bad copy")
+            return None
 
     return dest_path
 
