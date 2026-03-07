@@ -40,6 +40,15 @@ GROK_API_URL = "https://api.x.ai/v1/chat/completions"
 GROK_DEFAULT_MODEL = "grok-4-1-fast-reasoning"
 
 
+def _format_size(size_bytes):
+    """Format byte count as human-readable string."""
+    for unit in ("B", "KB", "MB", "GB"):
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
 def encode_image_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
@@ -371,7 +380,8 @@ def main():
     # Exclude files already in the output directory
     media_files = [f for f in media_files if not f.startswith(os.path.join(source, "sorted"))]
 
-    print(f"\nFound {len(media_files)} media files")
+    source_total = sum(os.path.getsize(f) for f in media_files)
+    print(f"\nFound {len(media_files)} media files ({_format_size(source_total)})")
     images = [f for f in media_files if os.path.splitext(f)[1].lower() in IMAGE_EXTS]
     videos = [f for f in media_files if os.path.splitext(f)[1].lower() in VIDEO_EXTS]
     print(f"  Images: {len(images)}")
@@ -398,7 +408,16 @@ def main():
 
     print(f"\n{'='*60}")
     print(f"Done. Processed: {processed}, Errors: {errors}")
-    if not args.dry_run:
+    print(f"Source size:  {_format_size(source_total)}")
+    if not args.dry_run and os.path.isdir(output_dir):
+        output_total = sum(
+            os.path.getsize(os.path.join(r, f))
+            for r, _, files in os.walk(output_dir)
+            for f in files
+        )
+        print(f"Output size:  {_format_size(output_total)}")
+        if output_total != source_total:
+            print(f"WARNING: Size mismatch! Difference: {_format_size(abs(source_total - output_total))}")
         print(f"Sorted files are in: {output_dir}")
 
 

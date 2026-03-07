@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 5. Files are copied (not moved) into `<output>/YYYY-MM-DD/` directories, preserving original timestamps in the filename
 6. 0-byte files are skipped (corrupt/incomplete transfers would cause the model to hallucinate a description)
 7. Post-copy verification ensures destination file matches source size; bad copies are removed automatically
+8. Reports total source and output directory sizes at the end, warns on size mismatch
 
 ## Commands
 
