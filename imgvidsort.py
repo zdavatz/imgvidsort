@@ -299,7 +299,7 @@ def collect_media_files(source_dir):
     return sorted(media_files)
 
 
-def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=False):
+def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=False, inplace=False):
     """Process a single image or video file."""
     filename = os.path.basename(filepath)
     ext = os.path.splitext(filename)[1].lower()
@@ -345,20 +345,27 @@ def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_r
         new_name = description
 
     new_filename = sanitize_filename(new_name, ext, existing_names)
-    dest_path = os.path.join(date_dir, new_filename)
 
-    print(f"  -> {date_str}/{new_filename} ({elapsed:.1f}s)")
+    if inplace:
+        dest_path = os.path.join(os.path.dirname(filepath), new_filename)
+        print(f"  -> {new_filename} ({elapsed:.1f}s)")
 
-    if not dry_run:
-        os.makedirs(date_dir, exist_ok=True)
-        shutil.copy2(filepath, dest_path)
-        # Verify the copy has the same size as the source
-        src_size = os.path.getsize(filepath)
-        dst_size = os.path.getsize(dest_path)
-        if dst_size != src_size:
-            os.remove(dest_path)
-            print(f"  ERROR: Copy verification failed ({dst_size} != {src_size} bytes), removed bad copy")
-            return None
+        if not dry_run:
+            os.rename(filepath, dest_path)
+    else:
+        dest_path = os.path.join(date_dir, new_filename)
+        print(f"  -> {date_str}/{new_filename} ({elapsed:.1f}s)")
+
+        if not dry_run:
+            os.makedirs(date_dir, exist_ok=True)
+            shutil.copy2(filepath, dest_path)
+            # Verify the copy has the same size as the source
+            src_size = os.path.getsize(filepath)
+            dst_size = os.path.getsize(dest_path)
+            if dst_size != src_size:
+                os.remove(dest_path)
+                print(f"  ERROR: Copy verification failed ({dst_size} != {src_size} bytes), removed bad copy")
+                return None
 
     return dest_path
 
@@ -389,6 +396,10 @@ def main():
                         help="Only process files up to this date (YYYYMMDD or YYYY-MM-DD)")
     parser.add_argument("--limit", type=int, default=None,
                         help="Maximum number of files to process")
+    parser.add_argument("--prefix", default=None,
+                        help="Only process files whose name starts with this string (e.g. PHOTO)")
+    parser.add_argument("--inplace", action="store_true",
+                        help="Rename files in place instead of copying to output directory")
     args = parser.parse_args()
 
     api = args.api
@@ -448,11 +459,16 @@ def main():
             sys.exit(1)
 
     print(f"Source:  {source}")
-    print(f"Output:  {output_dir}")
+    if args.inplace:
+        print(f"Mode:    inplace (rename files where they are)")
+    else:
+        print(f"Output:  {output_dir}")
     print(f"API:     {api}")
     print(f"Model:   {model}")
+    if args.prefix:
+        print(f"Prefix:  {args.prefix}")
     if args.dry_run:
-        print("DRY RUN - no files will be copied")
+        print("DRY RUN - no files will be " + ("renamed" if args.inplace else "copied"))
 
     media_files = collect_media_files(source)
     # Exclude files already in the output directory
@@ -474,6 +490,10 @@ def main():
             return True
         media_files = [f for f in media_files if _in_date_range(f)]
 
+    # Filter by filename prefix if specified
+    if args.prefix:
+        media_files = [f for f in media_files if os.path.basename(f).startswith(args.prefix)]
+
     if args.limit:
         media_files = media_files[:args.limit]
 
@@ -494,7 +514,7 @@ def main():
 
     for filepath in media_files:
         try:
-            process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=args.dry_run)
+            process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=args.dry_run, inplace=args.inplace)
             processed += 1
         except KeyboardInterrupt:
             print("\n\nInterrupted by user.")
@@ -506,7 +526,9 @@ def main():
     print(f"\n{'='*60}")
     print(f"Done. Processed: {processed}, Errors: {errors}")
     print(f"Source size:  {_format_size(source_total)}")
-    if not args.dry_run and os.path.isdir(output_dir):
+    if args.inplace:
+        print(f"Files renamed in place in: {source}")
+    elif not args.dry_run and os.path.isdir(output_dir):
         output_total = sum(
             os.path.getsize(os.path.join(r, f))
             for r, _, files in os.walk(output_dir)

@@ -21,7 +21,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 11. Supports Grok vision API as an alternative backend (`--api grok`), uploads images via tmpfiles.org
 12. Date range filtering with `--from-date` and `--to-date` flags
 13. `--limit N` flag to process only the first N files
-14. Per-file classification time is logged in the output
+14. `--prefix` flag to filter files by filename prefix (e.g. `--prefix PHOTO`)
+15. `--inplace` flag to rename files in place without copying to an output directory
+16. Per-file classification time is logged in the output
 
 ## Commands
 
@@ -49,6 +51,12 @@ python3 imgvidsort.py --from-date 2025-03-01 --to-date 2025-03-15
 
 # Limit number of files to process
 python3 imgvidsort.py --limit 10
+
+# Only process files starting with "PHOTO"
+python3 imgvidsort.py --source /path/to/media --prefix PHOTO --limit 10
+
+# Rename files in place (no copying)
+python3 imgvidsort.py --source /path/to/media --prefix PHOTO --inplace
 ```
 
 ## Supported Vision Models
