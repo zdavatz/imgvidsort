@@ -299,7 +299,7 @@ def collect_media_files(source_dir):
     return sorted(media_files)
 
 
-def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=False, inplace=False):
+def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=False, inplace=False, file_index=0, file_total=0):
     """Process a single image or video file."""
     filename = os.path.basename(filepath)
     ext = os.path.splitext(filename)[1].lower()
@@ -307,13 +307,14 @@ def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_r
     date_dir = os.path.join(output_dir, date_str)
 
     file_size = os.path.getsize(filepath)
+    counter = f"[{file_index}/{file_total}]" if file_total else ""
     if file_size == 0:
-        print(f"\n[SKIP] {filename} (0 bytes)")
+        print(f"\n{counter} [SKIP] {filename} (0 bytes)")
         return None
 
     is_video = ext in VIDEO_EXTS
     file_type = "VIDEO" if is_video else "IMAGE"
-    print(f"\n[{file_type}] {filename}")
+    print(f"\n{counter} [{file_type}] {filename}")
 
     # Get description from vision model
     tmpdir = None
@@ -512,9 +513,10 @@ def main():
     processed = 0
     errors = 0
 
-    for filepath in media_files:
+    total = len(media_files)
+    for i, filepath in enumerate(media_files, 1):
         try:
-            process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=args.dry_run, inplace=args.inplace)
+            process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=args.dry_run, inplace=args.inplace, file_index=i, file_total=total)
             processed += 1
         except KeyboardInterrupt:
             print("\n\nInterrupted by user.")
