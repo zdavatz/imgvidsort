@@ -28,7 +28,7 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".webp"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv"}
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-DEFAULT_MODEL = "qwen3-vl:8b"
+DEFAULT_MODEL = "qwen3-vl:2b"
 
 SUPPORTED_MODELS = [
     "qwen3-vl:8b",     # best quality — newest generation vision model
