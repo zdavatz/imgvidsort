@@ -214,7 +214,7 @@ def describe_with_grok(image_paths, model):
     """Send images to Grok vision API via temporary URL uploads."""
     api_key = os.environ.get("XAI_API_KEY")
     if not api_key:
-        print("  ERROR: XAI_API_KEY environment variable not set")
+        print("  ERROR: XAI_API_KEY not set (this should not happen)")
         return "unknown"
 
     content = [{"type": "text", "text": VISION_PROMPT}]
@@ -380,6 +380,10 @@ def main():
                         help="API backend to use (default: ollama)")
     parser.add_argument("--model", default=None,
                         help=f"Vision model (default: {DEFAULT_MODEL} for ollama, {GROK_DEFAULT_MODEL} for grok)")
+    parser.add_argument("--from-date", default=None,
+                        help="Only process files from this date (YYYYMMDD or YYYY-MM-DD)")
+    parser.add_argument("--to-date", default=None,
+                        help="Only process files up to this date (YYYYMMDD or YYYY-MM-DD)")
     args = parser.parse_args()
 
     api = args.api
@@ -406,8 +410,18 @@ def main():
     if api == "grok":
         describe_fn = describe_with_grok
         if not os.environ.get("XAI_API_KEY"):
-            print("ERROR: XAI_API_KEY environment variable not set")
-            sys.exit(1)
+            print("XAI_API_KEY environment variable not set.")
+            key = input("Enter your Grok API key (from https://console.x.ai): ").strip()
+            if not key:
+                print("ERROR: No API key provided")
+                sys.exit(1)
+            os.environ["XAI_API_KEY"] = key
+            # Persist the key in ~/.bashrc
+            bashrc = os.path.expanduser("~/.bashrc")
+            export_line = f'export XAI_API_KEY="{key}"\n'
+            with open(bashrc, "a") as f:
+                f.write(export_line)
+            print(f"API key saved to {bashrc}")
     else:
         describe_fn = describe_with_ollama
         # Verify Ollama is running and model is available
@@ -438,6 +452,22 @@ def main():
     media_files = collect_media_files(source)
     # Exclude files already in the output directory
     media_files = [f for f in media_files if not f.startswith(os.path.join(source, "sorted"))]
+
+    # Filter by date range if specified
+    from_date = args.from_date.replace("-", "") if args.from_date else None
+    to_date = args.to_date.replace("-", "") if args.to_date else None
+    if from_date or to_date:
+        def _in_date_range(filepath):
+            match = re.match(r"(\d{8})_", os.path.basename(filepath))
+            if not match:
+                return False
+            file_date = match.group(1)
+            if from_date and file_date < from_date:
+                return False
+            if to_date and file_date > to_date:
+                return False
+            return True
+        media_files = [f for f in media_files if _in_date_range(f)]
 
     source_total = sum(os.path.getsize(f) for f in media_files)
     print(f"\nFound {len(media_files)} media files ({_format_size(source_total)})")

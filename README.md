@@ -1,6 +1,6 @@
 # imgvidsort
 
-Sort and rename images and videos using a local vision LLM via Ollama.
+Sort and rename images and videos using a vision LLM via Ollama or the Grok API.
 
 ## What it does
 
@@ -14,12 +14,15 @@ Sort and rename images and videos using a local vision LLM via Ollama.
 - Reports source and output directory sizes, warns on size mismatch
 - Automatically pulls the Ollama model if not installed
 - Uses [llmfit](https://github.com/jeroenherczeg/llmfit) to auto-select the best vision model for your hardware (if installed)
+- Supports the [Grok](https://x.ai/) vision API as an alternative backend (`--api grok`)
+- Filter files by date range with `--from-date` and `--to-date`
 
 ## Requirements
 
 - Python 3 (no external packages needed)
 - [ffmpeg](https://ffmpeg.org/) (for video frame extraction)
-- [Ollama](https://ollama.com/) running locally with a vision model
+- [Ollama](https://ollama.com/) running locally with a vision model, **or**
+- A [Grok API key](https://console.x.ai) (set `XAI_API_KEY` env var)
 
 ```bash
 # Install one of the supported vision models
@@ -46,6 +49,12 @@ python3 imgvidsort.py --model qwen3-vl:8b     # best quality (default)
 python3 imgvidsort.py --model qwen2.5-vl:7b   # strong alternative
 python3 imgvidsort.py --model gemma3:4b        # balanced
 python3 imgvidsort.py --model qwen3-vl:2b     # fastest
+
+# Use Grok API instead of Ollama
+python3 imgvidsort.py --api grok
+
+# Filter by date range
+python3 imgvidsort.py --from-date 2025-03-01 --to-date 2025-03-15
 ```
 
 ## Output structure

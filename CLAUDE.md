@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**imgvidsort** — Sorts and renames images/videos from a USB stick using a local vision LLM via Ollama. Licensed under GPL-3.0.
+**imgvidsort** — Sorts and renames images/videos from a USB stick using a vision LLM via Ollama or the Grok API. Licensed under GPL-3.0.
 
 ## How It Works
 
@@ -18,6 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 8. Reports total source and output directory sizes at the end, warns on size mismatch
 9. Automatically runs `ollama pull` if the requested model is not installed
 10. If `llmfit` is installed, uses it to auto-select the best vision model for the system hardware (when no `--model` is specified)
+11. Supports Grok vision API as an alternative backend (`--api grok`), uploads images via tmpfiles.org
+12. Date range filtering with `--from-date` and `--to-date` flags
 
 ## Commands
 
@@ -36,6 +38,12 @@ python3 imgvidsort.py --model qwen3-vl:8b
 python3 imgvidsort.py --model qwen2.5-vl:7b
 python3 imgvidsort.py --model gemma3:4b
 python3 imgvidsort.py --model qwen3-vl:2b
+
+# Use Grok API backend
+python3 imgvidsort.py --api grok
+
+# Filter by date range
+python3 imgvidsort.py --from-date 2025-03-01 --to-date 2025-03-15
 ```
 
 ## Supported Vision Models
@@ -49,4 +57,4 @@ python3 imgvidsort.py --model qwen3-vl:2b
 
 - Python 3 (no pip packages needed — uses only stdlib)
 - ffmpeg/ffprobe (for video frame extraction)
-- Ollama running locally with one of the supported vision models
+- Ollama running locally with one of the supported vision models, **or** a Grok API key (`XAI_API_KEY`)
