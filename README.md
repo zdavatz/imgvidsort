@@ -31,7 +31,7 @@ Sort and rename images and videos using a vision LLM via Ollama or the Grok API.
 ollama pull qwen3-vl:8b         # default — best quality
 ollama pull qwen2.5-vl:7b       # strong vision model
 ollama pull gemma3:4b            # good quality/speed tradeoff
-ollama pull qwen3-vl:2b         # fastest — lightweight, good for large batches
+ollama pull qwen3-vl:2b         # fastest — lightweight, recommended for Apple M5 Macs
 ```
 
 ## Usage
@@ -50,7 +50,7 @@ python3 imgvidsort.py --source /path/to/media --output /path/to/sorted
 python3 imgvidsort.py --model qwen3-vl:8b     # best quality (default)
 python3 imgvidsort.py --model qwen2.5-vl:7b   # strong alternative
 python3 imgvidsort.py --model gemma3:4b        # balanced
-python3 imgvidsort.py --model qwen3-vl:2b     # fastest
+python3 imgvidsort.py --model qwen3-vl:2b     # fastest, recommended for M5 Macs
 
 # Use Grok API instead of Ollama
 python3 imgvidsort.py --api grok

@@ -56,7 +56,7 @@ python3 imgvidsort.py --limit 10
 - `qwen3-vl:8b` (default) — best quality, newest generation
 - `qwen2.5-vl:7b` — strong vision model
 - `gemma3:4b` — good quality/speed tradeoff
-- `qwen3-vl:2b` — fastest, lightweight, good for large batches
+- `qwen3-vl:2b` — fastest, lightweight, recommended for Apple M5 Macs
 
 ## Dependencies
 
