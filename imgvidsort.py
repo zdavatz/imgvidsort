@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".webp"}
@@ -316,6 +317,7 @@ def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_r
 
     # Get description from vision model
     tmpdir = None
+    t0 = time.time()
     try:
         if is_video:
             print(f"  Extracting 3 frames...")
@@ -332,6 +334,7 @@ def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_r
     finally:
         if tmpdir:
             shutil.rmtree(tmpdir, ignore_errors=True)
+    elapsed = time.time() - t0
 
     # Build new filename: date_prefix + description + ext
     timestamp_match = re.match(r"(\d{8}_\d{6})", filename)
@@ -344,7 +347,7 @@ def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_r
     new_filename = sanitize_filename(new_name, ext, existing_names)
     dest_path = os.path.join(date_dir, new_filename)
 
-    print(f"  -> {date_str}/{new_filename}")
+    print(f"  -> {date_str}/{new_filename} ({elapsed:.1f}s)")
 
     if not dry_run:
         os.makedirs(date_dir, exist_ok=True)
@@ -384,6 +387,8 @@ def main():
                         help="Only process files from this date (YYYYMMDD or YYYY-MM-DD)")
     parser.add_argument("--to-date", default=None,
                         help="Only process files up to this date (YYYYMMDD or YYYY-MM-DD)")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Maximum number of files to process")
     args = parser.parse_args()
 
     api = args.api
@@ -468,6 +473,9 @@ def main():
                 return False
             return True
         media_files = [f for f in media_files if _in_date_range(f)]
+
+    if args.limit:
+        media_files = media_files[:args.limit]
 
     source_total = sum(os.path.getsize(f) for f in media_files)
     print(f"\nFound {len(media_files)} media files ({_format_size(source_total)})")

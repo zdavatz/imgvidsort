@@ -16,6 +16,8 @@ Sort and rename images and videos using a vision LLM via Ollama or the Grok API.
 - Uses [llmfit](https://github.com/jeroenherczeg/llmfit) to auto-select the best vision model for your hardware (if installed)
 - Supports the [Grok](https://x.ai/) vision API as an alternative backend (`--api grok`)
 - Filter files by date range with `--from-date` and `--to-date`
+- Limit processing to N files with `--limit`
+- Logs per-file classification time
 
 ## Requirements
 
@@ -55,6 +57,9 @@ python3 imgvidsort.py --api grok
 
 # Filter by date range
 python3 imgvidsort.py --from-date 2025-03-01 --to-date 2025-03-15
+
+# Limit number of files to process
+python3 imgvidsort.py --limit 10
 ```
 
 ## Output structure

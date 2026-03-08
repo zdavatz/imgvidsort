@@ -20,6 +20,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 10. If `llmfit` is installed, uses it to auto-select the best vision model for the system hardware (when no `--model` is specified)
 11. Supports Grok vision API as an alternative backend (`--api grok`), uploads images via tmpfiles.org
 12. Date range filtering with `--from-date` and `--to-date` flags
+13. `--limit N` flag to process only the first N files
+14. Per-file classification time is logged in the output
 
 ## Commands
 
@@ -44,6 +46,9 @@ python3 imgvidsort.py --api grok
 
 # Filter by date range
 python3 imgvidsort.py --from-date 2025-03-01 --to-date 2025-03-15
+
+# Limit number of files to process
+python3 imgvidsort.py --limit 10
 ```
 
 ## Supported Vision Models
