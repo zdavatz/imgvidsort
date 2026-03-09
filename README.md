@@ -22,8 +22,9 @@ Sort and rename images and videos using a vision LLM via Ollama or the Grok API.
 - Logs per-file classification time
 - Automatically converts HEIC images to JPEG and resizes large images (>1MB) before sending to the model for faster processing
 - Disables thinking/reasoning mode in Ollama models (e.g. qwen3-vl) for fast, reliable image recognition
-- Uses a small context window (num_ctx=2048) to minimize memory usage
+- Auto-detects optimal context window size (num_ctx) based on system RAM and model size
 - Detects and unloads models running with excessive memory usage before reloading with optimal settings
+- Transliterates non-ASCII characters (umlauts, accents) in model responses for safe filenames
 
 ## Requirements
 

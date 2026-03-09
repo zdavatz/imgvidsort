@@ -88,6 +88,68 @@ def _llmfit_recommend():
         return None
 
 
+def _get_system_ram_gb():
+    """Return total system RAM in GB."""
+    try:
+        if sys.platform == "darwin":
+            result = subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=5)
+            return int(result.stdout.strip()) / (1024**3)
+        else:
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        return int(line.split()[1]) / (1024**2)
+    except Exception:
+        pass
+    return None
+
+
+def _get_model_size_gb(model):
+    """Query Ollama for the model's size on disk in GB."""
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            tags = json.loads(resp.read().decode("utf-8"))
+            for m in tags.get("models", []):
+                if model in m.get("name", ""):
+                    return m.get("size", 0) / (1024**3)
+    except Exception:
+        pass
+    return None
+
+
+def _choose_num_ctx(model):
+    """Choose an optimal num_ctx for vision classification based on system resources.
+
+    Vision images use ~1000-3000 prompt tokens. We need enough headroom for
+    the image tokens plus a short response, but not so much that we waste RAM.
+    Returns the chosen num_ctx and a short explanation string.
+    """
+    ram_gb = _get_system_ram_gb()
+    model_gb = _get_model_size_gb(model)
+
+    # For vision classification, 4096 is the minimum (images can use ~2000 tokens)
+    # 8192 gives comfortable headroom for larger/multiple images
+    # More than 8192 is wasteful for short filename descriptions
+    if ram_gb and model_gb:
+        available_gb = ram_gb - model_gb - 2  # reserve 2 GB for OS
+        if available_gb < 2:
+            num_ctx = 4096  # tight on RAM, use minimum viable
+        elif available_gb < 6:
+            num_ctx = 4096  # modest RAM
+        else:
+            num_ctx = 8192  # plenty of RAM
+        reason = f"RAM={ram_gb:.0f}GB, model={model_gb:.1f}GB"
+    elif ram_gb:
+        num_ctx = 4096 if ram_gb < 16 else 8192
+        reason = f"RAM={ram_gb:.0f}GB"
+    else:
+        num_ctx = 4096
+        reason = "default"
+
+    return num_ctx, reason
+
+
 def _format_size(size_bytes):
     """Format byte count as human-readable string."""
     for unit in ("B", "KB", "MB", "GB"):
@@ -188,14 +250,27 @@ VISION_PROMPT = (
 
 def clean_description(description):
     """Clean up model response into a valid filename component."""
-    description = re.sub(r"[^a-z0-9_]", "_", description.lower())
+    # Transliterate common non-ASCII characters before stripping
+    _translit = {
+        "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss",
+        "à": "a", "á": "a", "â": "a", "ã": "a",
+        "è": "e", "é": "e", "ê": "e", "ë": "e",
+        "ì": "i", "í": "i", "î": "i", "ï": "i",
+        "ò": "o", "ó": "o", "ô": "o", "õ": "o",
+        "ù": "u", "ú": "u", "û": "u",
+        "ñ": "n", "ç": "c",
+    }
+    description = description.lower()
+    for char, repl in _translit.items():
+        description = description.replace(char, repl)
+    description = re.sub(r"[^a-z0-9_]", "_", description)
     description = re.sub(r"_+", "_", description).strip("_")
     if len(description) > 80:
         description = description[:80].rsplit("_", 1)[0]
     return description if description else "unknown"
 
 
-def describe_with_ollama(image_paths, model):
+def describe_with_ollama(image_paths, model, num_ctx=4096):
     """Send images to a vision model via Ollama and get a short description."""
     prepared = []
     tmpdirs = []
@@ -219,7 +294,7 @@ def describe_with_ollama(image_paths, model):
             ],
             "stream": False,
             "think": False,
-            "options": {"num_ctx": 2048},
+            "options": {"num_ctx": num_ctx},
         }
 
         data = json.dumps(payload).encode("utf-8")
@@ -232,7 +307,11 @@ def describe_with_ollama(image_paths, model):
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
-                return clean_description(result["message"]["content"].strip())
+                raw = result["message"]["content"].strip()
+                cleaned = clean_description(raw)
+                if cleaned == "unknown":
+                    print(f"  DEBUG: Model raw response: {raw!r}")
+                return cleaned
         except Exception as e:
             print(f"  WARNING: Ollama request failed: {e}")
             return "unknown"
@@ -501,7 +580,9 @@ def main():
                 f.write(export_line)
             print(f"API key saved to {bashrc}")
     else:
-        describe_fn = describe_with_ollama
+        # Choose optimal context window size for this system
+        num_ctx, ctx_reason = _choose_num_ctx(model)
+        describe_fn = lambda paths, m: describe_with_ollama(paths, m, num_ctx=num_ctx)
         # Verify Ollama is running and model is available
         try:
             req = urllib.request.Request("http://localhost:11434/api/tags")
@@ -532,7 +613,7 @@ def main():
                                     headers={"Content-Type": "application/json"},
                                 )
                                 urllib.request.urlopen(unload_req, timeout=10)
-                                print(f"  Model unloaded. Will reload with num_ctx=2048.")
+                                print(f"  Model unloaded. Will reload with num_ctx={num_ctx}.")
             except Exception:
                 pass  # Non-critical check
         except Exception as e:
@@ -547,6 +628,8 @@ def main():
         print(f"Output:  {output_dir}")
     print(f"API:     {api}")
     print(f"Model:   {model}")
+    if api == "ollama":
+        print(f"Context: {num_ctx} tokens ({ctx_reason})")
     if args.prefix:
         print(f"Prefix:  {args.prefix}")
     if args.dry_run:
