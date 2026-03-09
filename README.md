@@ -24,7 +24,8 @@ Sort and rename images and videos using a vision LLM via Ollama or the Grok API.
 - Disables thinking/reasoning mode in Ollama models (e.g. qwen3-vl) for fast, reliable image recognition
 - Auto-detects optimal context window size (num_ctx) based on system RAM and model size
 - Detects and unloads models running with excessive memory usage before reloading with optimal settings
-- Transliterates non-ASCII characters (umlauts, accents) in model responses for safe filenames
+- Transliterates non-ASCII Latin characters (umlauts, accents) in model responses for safe filenames
+- Preserves Chinese, Japanese, and Korean (CJK) characters in filenames when detected in images
 
 ## Requirements
 

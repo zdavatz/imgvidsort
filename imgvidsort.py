@@ -241,16 +241,34 @@ def extract_frames(video_path, num_frames=3):
 VISION_PROMPT = (
     "Describe what you see in this image in 3-6 words suitable for a filename. "
     "Be specific about subjects, actions, and location. "
-    "Use only lowercase English words separated by underscores. "
+    "Use lowercase words separated by underscores. "
+    "If the image contains Japanese or Chinese text, you may use those characters. "
     "Do NOT include file extensions. Examples: dog_playing_in_park, "
-    "sunset_over_mountain_lake, child_riding_bicycle. "
+    "sunset_over_mountain_lake, child_riding_bicycle, "
+    "東京_桜_公園, 猫_窓辺_昼寝. "
     "Reply with ONLY the filename, nothing else."
 )
 
 
+def _is_cjk(char):
+    """Check if a character is CJK (Chinese, Japanese, Korean)."""
+    cp = ord(char)
+    return (
+        0x4E00 <= cp <= 0x9FFF or      # CJK Unified Ideographs (Chinese/Kanji)
+        0x3400 <= cp <= 0x4DBF or      # CJK Unified Ideographs Extension A
+        0x3040 <= cp <= 0x309F or      # Hiragana
+        0x30A0 <= cp <= 0x30FF or      # Katakana
+        0xFF66 <= cp <= 0xFF9F or      # Half-width Katakana
+        0xAC00 <= cp <= 0xD7AF         # Korean Hangul
+    )
+
+
 def clean_description(description):
-    """Clean up model response into a valid filename component."""
-    # Transliterate common non-ASCII characters before stripping
+    """Clean up model response into a valid filename component.
+    Preserves CJK characters (Chinese, Japanese, Korean) directly in filenames.
+    Transliterates Latin accented characters to ASCII equivalents.
+    """
+    # Transliterate common Latin accented characters
     _translit = {
         "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss",
         "à": "a", "á": "a", "â": "a", "ã": "a",
@@ -263,10 +281,20 @@ def clean_description(description):
     description = description.lower()
     for char, repl in _translit.items():
         description = description.replace(char, repl)
-    description = re.sub(r"[^a-z0-9_]", "_", description)
+    # Keep: ASCII alphanumerics, underscores, and CJK characters
+    cleaned = []
+    for ch in description:
+        if ch.isascii() and (ch.isalnum() or ch == "_"):
+            cleaned.append(ch)
+        elif _is_cjk(ch):
+            cleaned.append(ch)
+        else:
+            cleaned.append("_")
+    description = "".join(cleaned)
     description = re.sub(r"_+", "_", description).strip("_")
     if len(description) > 80:
-        description = description[:80].rsplit("_", 1)[0]
+        # For CJK, don't split mid-character — just truncate
+        description = description[:80].rsplit("_", 1)[0] if "_" in description[:80] else description[:80]
     return description if description else "unknown"
 
 

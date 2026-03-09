@@ -29,7 +29,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 19. Thinking/reasoning mode is disabled in Ollama requests (`"think": false`) for fast image classification
 20. Context window (`num_ctx`) is auto-detected based on system RAM and model size (4096 for tight RAM, 8192 when plenty available)
 21. Models loaded with excessive memory (>10GB for small models) are automatically unloaded and reloaded with optimal settings
-22. Non-ASCII characters in model responses (umlauts, accents) are transliterated to ASCII for safe filenames (e.g. ü→ue, ö→oe)
+22. Non-ASCII Latin characters in model responses (umlauts, accents) are transliterated to ASCII for safe filenames (e.g. ü→ue, ö→oe)
+23. CJK characters (Chinese, Japanese hiragana/katakana/kanji, Korean hangul) are preserved in filenames
+24. Vision prompt allows CJK responses when the image contains Chinese or Japanese text
 
 ## Commands
 
