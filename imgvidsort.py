@@ -464,7 +464,9 @@ def collect_media_files(source_dir):
             ext = os.path.splitext(f)[1].lower()
             if ext in IMAGE_EXTS or ext in VIDEO_EXTS:
                 media_files.append(os.path.join(root, f))
-    return sorted(media_files)
+    # Sort by modification time, newest first
+    media_files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+    return media_files
 
 
 def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_run=False, inplace=False, file_index=0, file_total=0):

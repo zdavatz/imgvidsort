@@ -24,14 +24,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 14. `--prefix` flag to filter files by filename prefix (e.g. `--prefix PHOTO`)
 15. `--inplace` flag to rename files in place without copying to an output directory
 16. Per-file classification time is logged in the output
-17. HEIC images are automatically converted to JPEG before sending to the model (uses `sips` on macOS, `ffmpeg` on Linux)
-18. Large images (>1MB) are resized to 1024px width before sending to reduce payload size and speed up inference
-19. Thinking/reasoning mode is disabled in Ollama requests (`"think": false`) for fast image classification
-20. Context window (`num_ctx`) is auto-detected based on system RAM and model size (4096 for tight RAM, 8192 when plenty available)
-21. Models loaded with excessive memory (>10GB for small models) are automatically unloaded and reloaded with optimal settings
-22. Non-ASCII Latin characters in model responses (umlauts, accents) are transliterated to ASCII for safe filenames (e.g. ü→ue, ö→oe)
-23. CJK characters (Chinese, Japanese hiragana/katakana/kanji, Korean hangul) are preserved in filenames
-24. Vision prompt allows CJK responses when the image contains Chinese or Japanese text
+17. Files are processed newest first (sorted by modification time)
+18. HEIC images are automatically converted to JPEG before sending to the model (uses `sips` on macOS, `ffmpeg` on Linux)
+19. Large images (>1MB) are resized to 1024px width before sending to reduce payload size and speed up inference
+20. Thinking/reasoning mode is disabled in Ollama requests (`"think": false`) for fast image classification
+21. Context window (`num_ctx`) is auto-detected based on system RAM and model size (4096 for tight RAM, 8192 when plenty available)
+22. Models loaded with excessive memory (>10GB for small models) are automatically unloaded and reloaded with optimal settings
+23. Non-ASCII Latin characters in model responses (umlauts, accents) are transliterated to ASCII for safe filenames (e.g. ü→ue, ö→oe)
+24. CJK characters (Chinese, Japanese hiragana/katakana/kanji, Korean hangul) are preserved in filenames
+25. Vision prompt allows CJK responses when the image contains Chinese or Japanese text
 
 ## Commands
 
