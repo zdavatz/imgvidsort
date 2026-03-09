@@ -150,6 +150,23 @@ def _choose_num_ctx(model):
     return num_ctx, reason
 
 
+def _num_frames_for_model(model):
+    """Choose how many video frames to extract based on model size.
+    Smaller models struggle with multiple images in one request."""
+    # Extract parameter size from model name (e.g. "qwen3-vl:2b" -> 2)
+    match = re.search(r":(\d+)b", model.lower())
+    if match:
+        params_b = int(match.group(1))
+    else:
+        params_b = 7  # assume medium if unknown
+    if params_b <= 2:
+        return 1
+    elif params_b <= 8:
+        return 2
+    else:
+        return 3
+
+
 def _format_size(size_bytes):
     """Format byte count as human-readable string."""
     for unit in ("B", "KB", "MB", "GB"):
@@ -491,13 +508,14 @@ def process_file(filepath, output_dir, existing_names, model, describe_fn, dry_r
     t0 = time.time()
     try:
         if is_video:
-            print(f"  Extracting 3 frames...")
-            frame_paths, tmpdir = extract_frames(filepath)
+            num_frames = _num_frames_for_model(model)
+            print(f"  Extracting {num_frames} frame{'s' if num_frames > 1 else ''}...")
+            frame_paths, tmpdir = extract_frames(filepath, num_frames=num_frames)
             if not frame_paths:
                 print(f"  WARNING: Could not extract frames, skipping rename")
                 description = "unknown_video"
             else:
-                print(f"  Analyzing {len(frame_paths)} frames with {model}...")
+                print(f"  Analyzing {len(frame_paths)} frame{'s' if len(frame_paths) > 1 else ''} with {model}...")
                 description = describe_fn(frame_paths, model)
         else:
             print(f"  Analyzing with {model}...")

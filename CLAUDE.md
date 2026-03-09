@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## How It Works
 
 1. Scans source directory recursively for images (.jpg, .jpeg, .png, .heic, .webp) and videos (.mp4, .mov, .avi, .mkv)
-2. For videos: extracts 3 evenly-spaced frames via ffmpeg, sends them to the vision model
+2. For videos: extracts evenly-spaced frames via ffmpeg (1 frame for ≤2B models, 2 for ≤8B, 3 for larger), sends them to the vision model
 3. For images: sends the image directly to the vision model
 4. Model returns a short description used as the new filename
 5. Files are copied (not moved) into `<output>/YYYY-MM-DD/` directories, preserving original timestamps in the filename

@@ -6,7 +6,7 @@ Sort and rename images and videos using a vision LLM via Ollama or the Grok API.
 
 - Scans a USB stick (or any directory) for images and videos
 - Sends images to a vision model for content recognition and renames them based on what the model sees
-- Extracts 3 frames from each video, analyzes them, and renames the video accordingly
+- Extracts frames from each video, analyzes them, and renames the video accordingly (frame count adapts to model size: 1 for small, 2 for medium, 3 for large models)
 - Sorts everything into date-based subdirectories (`YYYY-MM-DD/`)
 - Copies files — originals are never modified or deleted
 - Skips 0-byte files (corrupt or incomplete transfers) to avoid hallucinated filenames
