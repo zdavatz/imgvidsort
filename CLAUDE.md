@@ -24,6 +24,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 14. `--prefix` flag to filter files by filename prefix (e.g. `--prefix PHOTO`)
 15. `--inplace` flag to rename files in place without copying to an output directory
 16. Per-file classification time is logged in the output
+17. HEIC images are automatically converted to JPEG before sending to the model (uses `sips` on macOS, `ffmpeg` on Linux)
+18. Large images (>1MB) are resized to 1024px width before sending to reduce payload size and speed up inference
+19. Thinking/reasoning mode is disabled in Ollama requests (`"think": false`) for fast image classification
+20. Context window is set to 2048 tokens (`num_ctx`) to minimize memory usage
+21. Models loaded with excessive memory (>10GB for small models) are automatically unloaded and reloaded with optimal settings
 
 ## Commands
 

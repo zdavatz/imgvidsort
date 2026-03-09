@@ -97,6 +97,53 @@ def _format_size(size_bytes):
     return f"{size_bytes:.1f} TB"
 
 
+def _prepare_image(path):
+    """Convert HEIC to JPEG and resize large images for faster processing.
+    Returns path to a ready-to-send image (may be a temp file)."""
+    ext = os.path.splitext(path)[1].lower()
+    needs_convert = ext == ".heic"
+    # Check if image is large (> 1MB) and should be resized
+    needs_resize = os.path.getsize(path) > 1_000_000
+
+    if not needs_convert and not needs_resize:
+        return path, None
+
+    tmpdir = tempfile.mkdtemp(prefix="imgvidsort_prep_")
+    out_path = os.path.join(tmpdir, "image.jpg")
+
+    try:
+        if sys.platform == "darwin":
+            # Use macOS sips for conversion and resize
+            if needs_convert:
+                subprocess.run(
+                    ["sips", "-s", "format", "jpeg", path, "--out", out_path],
+                    capture_output=True, timeout=30
+                )
+            else:
+                shutil.copy2(path, out_path)
+            if needs_resize and os.path.exists(out_path):
+                subprocess.run(
+                    ["sips", "--resampleWidth", "1024", out_path],
+                    capture_output=True, timeout=30
+                )
+        else:
+            # On Linux, try ffmpeg for conversion/resize
+            cmd = ["ffmpeg", "-y", "-i", path]
+            if needs_resize:
+                cmd += ["-vf", "scale=1024:-1"]
+            cmd += ["-q:v", "2", out_path]
+            subprocess.run(cmd, capture_output=True, timeout=30)
+
+        if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+            return out_path, tmpdir
+    except Exception as e:
+        print(f"  WARNING: Image preprocessing failed: {e}")
+
+    # Fallback: return original (will fail for HEIC but at least we tried)
+    shutil.rmtree(tmpdir, ignore_errors=True)
+    return path, None
+
+
 def encode_image_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
@@ -150,34 +197,48 @@ def clean_description(description):
 
 def describe_with_ollama(image_paths, model):
     """Send images to a vision model via Ollama and get a short description."""
-    images_b64 = [encode_image_base64(p) for p in image_paths]
-
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "user",
-                "content": VISION_PROMPT,
-                "images": images_b64,
-            }
-        ],
-        "stream": False,
-    }
-
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        OLLAMA_URL,
-        data=data,
-        headers={"Content-Type": "application/json"},
-    )
+    prepared = []
+    tmpdirs = []
+    for p in image_paths:
+        prep_path, tmpdir = _prepare_image(p)
+        prepared.append(prep_path)
+        if tmpdir:
+            tmpdirs.append(tmpdir)
 
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            return clean_description(result["message"]["content"].strip())
-    except Exception as e:
-        print(f"  WARNING: Ollama request failed: {e}")
-        return "unknown"
+        images_b64 = [encode_image_base64(p) for p in prepared]
+
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": VISION_PROMPT,
+                    "images": images_b64,
+                }
+            ],
+            "stream": False,
+            "think": False,
+            "options": {"num_ctx": 2048},
+        }
+
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            OLLAMA_URL,
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                return clean_description(result["message"]["content"].strip())
+        except Exception as e:
+            print(f"  WARNING: Ollama request failed: {e}")
+            return "unknown"
+    finally:
+        for d in tmpdirs:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 def _upload_temp(filepath):
@@ -454,6 +515,26 @@ def main():
                         print(f"ERROR: Failed to pull model '{model}'")
                         sys.exit(1)
                     print(f"Model '{model}' installed successfully.")
+            # Check if model is already loaded with bad settings
+            try:
+                ps_req = urllib.request.Request("http://localhost:11434/api/ps")
+                with urllib.request.urlopen(ps_req, timeout=5) as ps_resp:
+                    ps_data = json.loads(ps_resp.read().decode("utf-8"))
+                    for m in ps_data.get("models", []):
+                        if model in m.get("name", ""):
+                            size_gb = m.get("size", 0) / (1024**3)
+                            ctx = m.get("details", {}).get("parameter_size", "")
+                            if size_gb > 10:
+                                print(f"  NOTE: Model using {size_gb:.1f} GB RAM — unloading to reload with optimal settings...")
+                                unload_req = urllib.request.Request(
+                                    OLLAMA_URL,
+                                    data=json.dumps({"model": model, "keep_alive": 0}).encode(),
+                                    headers={"Content-Type": "application/json"},
+                                )
+                                urllib.request.urlopen(unload_req, timeout=10)
+                                print(f"  Model unloaded. Will reload with num_ctx=2048.")
+            except Exception:
+                pass  # Non-critical check
         except Exception as e:
             print(f"ERROR: Cannot connect to Ollama at localhost:11434: {e}")
             print("Make sure Ollama is running: ollama serve")
